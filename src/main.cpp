@@ -12,6 +12,7 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
+#include "sensesp/sensors/constant_sensor.h"
 #include "sensesp/sensors/sensor.h"
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp_app_builder.h"
@@ -127,7 +128,13 @@ void setup() {
   //     []() { debugD("Pressure: %f", pressureSensor->get()); });
 
   // Start networking, SK server connections and other SensESP
-  // internals
+  //
+  /*
+    auto* cs = new StringConstantSensor(
+        "https://github.com/smr547/Indoor-Enviro-Sensors/tree/main",1000
+        "/sensors/source_code_path");
+
+  */
 
   sensesp_app->start();
 }
