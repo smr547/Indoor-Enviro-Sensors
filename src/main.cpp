@@ -11,14 +11,38 @@
 #include <Adafruit_BME280.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
+#include <sensesp/transforms/debounce.h>
+#include <sensesp/transforms/lambda_transform.h>
+#include <sensesp/transforms/linear.h>
 
+#include "sensesp/sensors/analog_input.h"
 #include "sensesp/sensors/constant_sensor.h"
+#include "sensesp/sensors/digital_input.h"
 #include "sensesp/sensors/sensor.h"
 #include "sensesp/signalk/signalk_output.h"
+#include "sensesp/transforms/integrator.h"
 #include "sensesp_app_builder.h"
 
 #define APP_NAME "Indoor Environment Sensors"
 #define HOST_NAME "IndoorSensors"
+#define RAIN_PIN 12
+#define RAIN_DEBOUNCE_MS 15
+#define RAIN_REPORT_MS 300000
+#define RAIN_REPORT_MS_PATH "/rain/report_period_ms"
+#define RAIN_MM_PER_PULSE 0.18
+#define RAIN_MM_PER_PULSE_PATH "/rain/mm_per_pulse"
+#define SK_RAIN_PATH "environment.rain.5min"
+#define SK_RAIN_CONFIG_PATH "/rain/sk_path"
+
+#define ANEMOMETER_PIN 35
+#define WIND_INSTANTANEOUS_SPEED_REPORT_MS 5000
+#define WIND_DEBOUNCE_MS 15
+#define SK_TRUE_WINDSPEED_PATH "environment.wind.speedTrue"
+#define SK_TRUE_WINDSPEED_CONFIG_PATH "/wind/speedTrue/SK_path"
+
+#define WIND_DIRECTION_PIN 33
+#define WIND_DIRECTION_REPORT_MS 5000
+#define SK_TRUE_WIND_DIRECTION_PATH "environment.wind.directionTrue"
 
 using namespace sensesp;
 
@@ -35,28 +59,6 @@ void setup() {
   SetupSerialDebug(115200);
 #endif
 
-  Wire.begin();
-  unsigned status;
-
-  // default settings
-  status = bme.begin();
-  // You can also pass in a Wire library object like &Wire2
-  // status = bme.begin(0x76, &Wire2)
-  if (!status) {
-    Serial.println(
-        "Could not find a valid BME280 sensor, check wiring, address, "
-        "sensor ID!");
-    Serial.print("SensorID was: 0x");
-    Serial.println(bme.sensorID(), 16);
-    Serial.print(
-        "        ID of 0xFF probably means a bad address, a BMP 180 or BMP "
-        "085\n");
-    Serial.print("   ID of 0x56-0x58 represents a BMP 280,\n");
-    Serial.print("        ID of 0x60 represents a BME 280.\n");
-    Serial.print("        ID of 0x61 represents a BME 680.\n");
-    while (1) delay(10);
-  }
-
   // Construct the global SensESPApp() object
   SensESPAppBuilder builder;
   sensesp_app = (&builder)
@@ -64,63 +66,140 @@ void setup() {
                     ->set_hostname(HOST_NAME)
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
-                    //->set_wifi("My WiFi SSID", "my_wifi_password")
+                    ->set_wifi("Bertie", "Ookie1234")
                     //->set_sk_server("192.168.10.3", 80)
                     ->get_app();
 
+  UIOutput<String>* app_version_url_ = new UIOutput<String>(
+      "Application source code",
+      "https://github.com/smr547/Indoor-Enviro-Sensors", "Software", 1901);
+
+  Wire.begin();
+  unsigned status;
+
+  // default settings
+  status = bme.begin();
+  // You can also pass in a Wire library object like &Wire2
+  status = bme.begin(0x77, &Wire);
+  if (!status) {
+    Serial.println(
+        "Could not find a valid BME280 sensor, check wiring, address, "
+        "sensor ID!");
+    Serial.print("SensorID was: 0x");
+    Serial.println(bme.sensorID(), 16);
+  } else {
+    /************************************************************************************
+     * Atmospheric pressure in hPa *
+     ************************************************************************************
+     */
+    auto* pressureSensor = new RepeatSensor<float>(
+        report_interval_ms, []() { return bme.readPressure() / 100.; });
+
+    // Connect the pressureSensor to Signal K output. This will publish the
+    // pressure value to the Signal K on a regular basis
+    pressureSensor->connect_to(new SKOutputFloat(
+        "environment.outside.pressure",  // Signal K path
+        "/sensors/pressure",             // configuration path, used in the
+                                         // web UI and for storing the
+                                         // configuration
+        new SKMetadata("hPa",            // Define output units
+                       "Hectopascals")   // Value description
+        ));
+
+    /************************************************************************************
+     * Temperature degrees Kelvin *
+     ************************************************************************************
+     */
+    auto* tempSensor = new RepeatSensor<float>(
+        report_interval_ms, []() { return bme.readTemperature() + 273.15; });
+
+    // Connect the pressureSensor to Signal K output. This will publish the
+    // pressure value to the Signal K on a regular basis
+    tempSensor->connect_to(new SKOutputFloat(
+        "environment.outside.temperature",  // Signal K path
+        "/sensors/temp",                    // configuration path, used in the
+                                            // web UI and for storing the
+                                            // configuration
+        new SKMetadata("K",                 // Define output units
+                       "degrees Kelvin")    // Value description
+        ));
+
+    /************************************************************************************
+     * Humidity Sensor *
+     ************************************************************************************
+     */
+    auto* humiditySensor = new RepeatSensor<float>(
+        report_interval_ms, []() { return bme.readHumidity() / 100.; });
+
+    // Connect the pressureSensor to Signal K output. This will publish the
+    // pressure value to the Signal K on a regular basis
+    humiditySensor->connect_to(new SKOutputFloat(
+        "environment.outside.relativeHumidity",  // Signal K path
+        "/sensors/humidity",     // configuration path, used in the
+                                 // web UI and for storing the
+                                 // configuration
+        new SKMetadata("ratio",  // Define output units
+                       "Humidity as a fraction of one")  // Value description
+        ));
+  }
+
   /************************************************************************************
-   * Atmospheric pressure in hPa *
-   ************************************************************************************
-   */
-  auto* pressureSensor = new RepeatSensor<float>(
-      report_interval_ms, []() { return bme.readPressure() / 100.; });
+   * Rain Sensor *
+   *************************************************************************************/
 
-  // Connect the pressureSensor to Signal K output. This will publish the
-  // pressure value to the Signal K on a regular basis
-  pressureSensor->connect_to(new SKOutputFloat(
-      "environment.indoor.pressure",  // Signal K path
-      "/sensors/indoor/pressure",     // configuration path, used in the
-                                      // web UI and for storing the
-                                      // configuration
-      new SKMetadata("hPa",           // Define output units
-                     "Hectopascals")  // Value description
-      ));
+  auto* rainMetadata = new SKMetadata();
+  rainMetadata->units_ = "mm";
+  rainMetadata->description_ =
+      "Amount of rain falling in last measure interval";
+  rainMetadata->display_name_ = "Rain volume";
+  rainMetadata->short_name_ = "Rain volume";
 
-  /************************************************************************************
-   * Temperature degrees Kelvin *
-   ************************************************************************************
-   */
-  auto* tempSensor = new RepeatSensor<float>(
-      report_interval_ms, []() { return bme.readTemperature() + 273.15; });
+  auto* rainPulseCounter = new DigitalInputDebounceCounter(
+      RAIN_PIN, INPUT_PULLUP, FALLING, RAIN_REPORT_MS, RAIN_DEBOUNCE_MS,
+      RAIN_REPORT_MS_PATH);
+  auto* rainMultiplier =
+      new Linear(RAIN_MM_PER_PULSE, 0.0F, RAIN_MM_PER_PULSE_PATH);
+  auto* rainReporter =
+      new SKOutputFloat(SK_RAIN_PATH, SK_RAIN_CONFIG_PATH, rainMetadata);
 
-  // Connect the pressureSensor to Signal K output. This will publish the
-  // pressure value to the Signal K on a regular basis
-  tempSensor->connect_to(new SKOutputFloat(
-      "environment.indoor.temp",        // Signal K path
-      "/sensors/indoor/temp",           // configuration path, used in the
-                                        // web UI and for storing the
-                                        // configuration
-      new SKMetadata("K",               // Define output units
-                     "degrees Kelvin")  // Value description
-      ));
+  rainPulseCounter->connect_to(rainMultiplier)->connect_to(rainReporter);
 
   /************************************************************************************
-   * Humidity Sensor *
-   ************************************************************************************
-   */
-  auto* humiditySensor = new RepeatSensor<float>(
-      report_interval_ms, []() { return bme.readHumidity() / 100.; });
+   * Wind speed sensor (anemometer) *
+   ************************************************************************************/
 
-  // Connect the pressureSensor to Signal K output. This will publish the
-  // pressure value to the Signal K on a regular basis
-  humiditySensor->connect_to(new SKOutputFloat(
-      "environment.indoor.humidity",  // Signal K path
-      "/sensors/indoor/humidity",     // configuration path, used in the
-                                      // web UI and for storing the
-                                      // configuration
-      new SKMetadata("ratio",         // Define output units
-                     "Humidity as a fraction of one")  // Value description
-      ));
+  // auto* rainMetadata = new SKMetadata();
+  //  rainMetadata->units_ = "mm";
+  //  rainMetadata->description_ =
+  //      "Amount of rain falling in last measure interval";
+  //  rainMetadata->display_name_ = "Rain volume";
+  //  rainMetadata->short_name_ = "Rain volume";
+
+  auto* windPulseCounter = new DigitalInputDebounceCounter(
+      ANEMOMETER_PIN, INPUT_PULLUP, FALLING, WIND_INSTANTANEOUS_SPEED_REPORT_MS,
+      WIND_DEBOUNCE_MS);
+  auto* instataneousWindSpeedReporter =
+      new SKOutputFloat(SK_TRUE_WINDSPEED_PATH, SK_TRUE_WINDSPEED_CONFIG_PATH);
+
+  windPulseCounter->connect_to(instataneousWindSpeedReporter);
+
+  /************************************************************************************
+   * Wind direction sensor *
+   ************************************************************************************/
+  // Wind direction comes to us via ADC. A count of zero implies due north,
+  // full count is 359 degrees. Signal K expects this in radians, so we scale
+  // it to -PI -> 0 -> +PI.
+  auto* windDirectionSensor =
+      new AnalogInput(WIND_DIRECTION_PIN, WIND_DIRECTION_REPORT_MS, "", 2 * PI);
+  windDirectionSensor
+      ->connect_to(new LambdaTransform<float, float>(
+          [](float inRadians) {
+            // Convert from true wind direction to apparent wind
+            // direction with the boat heading true north.
+            return inRadians < PI ? inRadians : (inRadians - 2 * PI);
+          },
+          "" /* no config */))
+      ->connect_to(new SKOutputFloat(SK_TRUE_WIND_DIRECTION_PATH));
 
   // Add an observer that prints out the current value of the analog input
   // every time it changes.
