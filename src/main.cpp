@@ -286,7 +286,7 @@ void setup() {
       });
 
   SKMetadata* windAvgDirectionMetadata =
-      new SKMetadata("m/s", "Average wind direction over 10 minute interval",
+      new SKMetadata("rad", "Average wind direction over 10 minute interval",
                      "Avg direction", "Avg direction");
 
   auto* averageWindDirectionReporter = new SKOutputFloat(
