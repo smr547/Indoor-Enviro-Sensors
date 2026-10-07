@@ -1,6 +1,6 @@
 {
   "name": "weather-station-dashboard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Unified Reid and Barking Owl weather dashboard for Signal K",
   "keywords": ["signalk-webapp"],
   "author": "Steven Ring",
