@@ -12,7 +12,7 @@ install: pack
 	sudo systemctl stop signalk
 	sudo rm -rf $(SIGNALK_HOME)/node_modules/$(APP_NAME)
 	sudo npm install ./$(PKG) --prefix $(SIGNALK_HOME) --save
-	sudo chown -R signalk:signalk $(SIGNALK_HOME)
+	sudo chown -R smr:smr $(SIGNALK_HOME)
 	sudo systemctl start signalk
 
 deploy: install verify
@@ -21,7 +21,7 @@ uninstall:
 	sudo systemctl stop signalk
 	sudo npm uninstall $(APP_NAME) --prefix $(SIGNALK_HOME) --save || true
 	sudo rm -rf $(SIGNALK_HOME)/node_modules/$(APP_NAME)
-	sudo chown -R signalk:signalk $(SIGNALK_HOME)
+	sudo chown -R smr:smr $(SIGNALK_HOME)
 	sudo systemctl start signalk
 
 restart:
