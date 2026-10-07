@@ -1,11 +1,12 @@
 APP_NAME := weather-station-dashboard
 VERSION := 0.1.0
-SIGNALK_HOME := /home/signalk/.signalk
+SIGNALK_HOME := /home/smr/.signalk
 PKG := $(APP_NAME)-$(VERSION).tgz
 
 .PHONY: pack install uninstall deploy restart status verify clean
 
 pack:
+	rm -f $(APP_NAME)-*.tgz
 	npm pack
 
 install: pack
