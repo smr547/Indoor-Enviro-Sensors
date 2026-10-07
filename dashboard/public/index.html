@@ -14,7 +14,7 @@ h1{margin:0;font-size:clamp(1.8rem,4vw,3rem)}.sub,.label{color:var(--muted)}.sta
 .arrow{position:absolute;left:50%;top:50%;width:5px;height:78px;background:#f4f7fa;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(0deg);border-radius:4px}.arrow:before{content:"";position:absolute;top:-10px;left:-7px;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:16px solid #f4f7fa}
 .big{font-size:clamp(2.2rem,6vw,4.7rem);font-weight:800;line-height:1}.unit{font-size:.42em;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:15px}.metric{background:#0a1724;border:1px solid var(--line);border-radius:16px;padding:15px}.value{font-size:1.7rem;font-weight:750;margin-top:4px}
 .lower{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.healthrow{display:flex;justify-content:space-between;border-bottom:1px solid #203346;padding:9px 0}.healthrow:last-child{border:0}
-.good{color:var(--good)}.warn{color:var(--warn)}.missing{opacity:.42}.foot{margin-top:15px;color:var(--muted);font-size:.9rem}
+.good{color:var(--good)}.warn{color:var(--warn)}.missing{opacity:.42}.location{margin-top:12px;padding-top:12px;border-top:1px solid #203346;display:flex;justify-content:space-between;gap:16px;align-items:end}.coords{font-variant-numeric:tabular-nums}.maplink{color:var(--text);text-decoration:none;border:1px solid #47627a;border-radius:12px;padding:8px 11px;white-space:nowrap}.maplink:hover{background:#13283b}.foot{margin-top:15px;color:var(--muted);font-size:.9rem}
 @media(max-width:780px){.grid,.lower{grid-template-columns:1fr}.wind{grid-template-columns:1fr}.head{display:block}.status{text-align:left;margin-top:10px}}
 </style>
 </head>
@@ -22,13 +22,13 @@ h1{margin:0;font-size:clamp(1.8rem,4vw,3rem)}.sub,.label{color:var(--muted)}.sta
 <div class="head"><div><h1 id="stationName">Weather Station</h1><div class="sub">Live conditions from Signal K</div></div><div class="status"><div class="label">Signal K</div><strong id="connection" class="warn">connecting…</strong><div id="updated" class="sub">—</div></div></div>
 <div class="grid">
 <section class="panel wind"><div class="rose"><span class="north">N</span><div id="windArrow" class="arrow"></div></div><div><div class="label">WIND</div><div class="big"><span id="windSpeed">—</span> <span class="unit">km/h</span></div><div class="metrics"><div class="metric"><div class="label">10 min average</div><div class="value"><span id="windAvg">—</span> km/h</div></div><div class="metric"><div class="label">Gust</div><div class="value"><span id="windGust">—</span> km/h</div></div><div class="metric"><div class="label">Direction</div><div class="value" id="windDir">—</div></div><div class="metric"><div class="label">Freshness</div><div class="value" id="freshness">—</div></div></div></div></section>
-<section class="panel"><div class="label">OUTSIDE</div><div class="metrics"><div class="metric"><div class="label">Temperature</div><div class="value"><span id="temperature">—</span> °C</div></div><div class="metric"><div class="label">Humidity</div><div class="value"><span id="humidity">—</span> %</div></div><div class="metric"><div class="label">Pressure</div><div class="value"><span id="pressure">—</span> hPa</div></div><div class="metric"><div class="label">MSL pressure</div><div class="value"><span id="pressureMSL">—</span> hPa</div></div></div></section>
+<section class="panel"><div class="label">OUTSIDE</div><div class="metrics"><div class="metric"><div class="label">Temperature</div><div class="value"><span id="temperature">—</span> °C</div></div><div class="metric"><div class="label">Humidity</div><div class="value"><span id="humidity">—</span> %</div></div><div class="metric"><div class="label">Pressure</div><div class="value"><span id="pressure">—</span> hPa</div></div><div class="metric"><div class="label">MSL pressure</div><div class="value"><span id="pressureMSL">—</span> hPa</div></div></div><div class="location"><div><div class="label">STATION LOCATION</div><div class="coords"><strong id="position">—</strong> · <span id="altitude">—</span></div></div><a id="mapLink" class="maplink missing" href="#" target="_blank" rel="noopener">View on map ↗</a></div></section>
 </div>
 <div class="lower">
 <section class="panel"><div class="label">RAIN</div><div class="metrics"><div class="metric"><div class="label">Last 5 minutes</div><div class="value"><span id="rain5">—</span> mm</div></div><div class="metric"><div class="label">LoRa bucket count</div><div class="value" id="bucketCount">—</div></div></div><div class="foot">Today / 24 h totals will be added from historical data in the next increment.</div></section>
 <section class="panel"><div class="label">STATION HEALTH</div><div class="healthrow"><span>Supply</span><strong id="supplyV">—</strong></div><div class="healthrow"><span>Solar panel</span><strong id="panelW">—</strong></div><div class="healthrow"><span>Load</span><strong id="loadA">—</strong></div><div class="healthrow"><span>Charging</span><strong id="chargeMode">—</strong></div><div class="foot">Power telemetry is an optional station capability.</div></section>
 </div>
-<div class="foot">Weather dashboard v0.1 · compatibility contract for Reid and Barking Owl</div>
+<div class="foot">Weather dashboard v0.1.1 · compatibility contract for Reid and Barking Owl</div>
 </div>
 <script>
 const aliases={
@@ -36,6 +36,8 @@ const aliases={
  humidity:["environment.outside.relativeHumidity","environment.outside.humidity"],
  pressure:["environment.outside.pressure"],
  pressureMSL:["environment.outside.pressureMSL"],
+ position:["navigation.position"],
+ altitude:["navigation.gnss.antennaAltitude"],
  windSpeed:["environment.wind.speedTrue","environment.wind.speedApparent"],
  windDirection:["environment.wind.directionTrue","environment.wind.angleApparent"],
  windAverage:["environment.wind.speedAverage"],
@@ -51,16 +53,18 @@ const reverse=new Map();Object.entries(aliases).forEach(([k,ps])=>ps.forEach(p=>
 const state={};let last=0;
 const el=id=>document.getElementById(id), num=(v,d=1)=>Number.isFinite(v)?v.toFixed(d):"—";
 function compass(rad){if(!Number.isFinite(rad))return "—";let d=(rad*180/Math.PI+360)%360;return ["N","NE","E","SE","S","SW","W","NW"][Math.round(d/45)%8]+" "+Math.round(d)+"°"}
+function formatCoord(v,pos,neg){if(!Number.isFinite(v))return null;return Math.abs(v).toFixed(5)+"° "+(v>=0?pos:neg)}
 function render(){
  el("temperature").textContent=num(state.temperature-273.15,1);el("humidity").textContent=num(state.humidity*100,0);
  const p=v=>Number.isFinite(v)?(v>2000?v/100:v):NaN;el("pressure").textContent=num(p(state.pressure),1);el("pressureMSL").textContent=num(p(state.pressureMSL),1);
+ const lat=state.position?.latitude,lon=state.position?.longitude;const latText=formatCoord(lat,"N","S"),lonText=formatCoord(lon,"E","W");el("position").textContent=latText&&lonText?latText+"  "+lonText:"—";el("altitude").textContent=Number.isFinite(state.altitude)?num(state.altitude,0)+" m elevation":"—";const map=el("mapLink");if(Number.isFinite(lat)&&Number.isFinite(lon)){map.href="https://www.openstreetmap.org/?mlat="+encodeURIComponent(lat)+"&mlon="+encodeURIComponent(lon)+"#map=15/"+encodeURIComponent(lat)+"/"+encodeURIComponent(lon);map.classList.remove("missing")}else{map.href="#";map.classList.add("missing")}
  el("windSpeed").textContent=num(state.windSpeed*3.6,1);el("windAvg").textContent=num(state.windAverage*3.6,1);el("windGust").textContent=num(state.windGust*3.6,1);
  el("windDir").textContent=compass(state.windDirection);if(Number.isFinite(state.windDirection))el("windArrow").style.transform="translate(-50%,-100%) rotate("+state.windDirection*180/Math.PI+"deg)";
  el("rain5").textContent=num(state.rain5,2);el("bucketCount").textContent=Number.isFinite(state.bucketCount)?Math.round(state.bucketCount):"—";
  el("supplyV").textContent=Number.isFinite(state.supplyV)?num(state.supplyV,2)+" V":"—";el("panelW").textContent=Number.isFinite(state.panelW)?num(state.panelW,0)+" W":"—";el("loadA").textContent=Number.isFinite(state.loadA)?num(state.loadA,2)+" A":"—";el("chargeMode").textContent=state.chargeMode??"—";
  if(last){el("updated").textContent="last update "+new Date(last).toLocaleTimeString();el("freshness").textContent=Math.round((Date.now()-last)/1000)+" s"}
 }
-function ingest(path,value){const k=reverse.get(path);if(!k)return;const n=typeof value==="number"?value:Number(value);state[k]=Number.isFinite(n)?n:value;last=Date.now();render()}
+function ingest(path,value){const k=reverse.get(path);if(!k)return;if(k==="position"){state[k]=value}else{const n=typeof value==="number"?value:Number(value);state[k]=Number.isFinite(n)?n:value}last=Date.now();render()}
 async function seed(){
  try{const r=await fetch("../../signalk/v1/api/vessels/self");const d=await r.json();el("stationName").textContent=d.name||"Weather Station";
   for(const [k,ps] of Object.entries(aliases)){for(const p of ps){let x=d;for(const part of p.split("."))x=x?.[part];if(x&&x.value!==undefined){state[k]=x.value;break}}}render()
