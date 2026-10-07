@@ -18,7 +18,9 @@ This document defines the application-facing weather data contract shared by Rei
 | Air temperature | temperature | environment.outside.temperature | environment.outside.temperature | K | Common path |
 | Relative humidity | humidity | environment.outside.relativeHumidity | environment.outside.humidity | ratio | Path dialect differs |
 | Ambient pressure | pressure | environment.outside.pressure | environment.outside.pressure | Pa preferred | Reid legacy producer reports hPa; Barking Owl reports Pa |
-| MSL pressure | pressureMSL | environment.outside.pressureMSL | derived when available | Pa/hPa by metadata | Derived quantity |
+| MSL pressure | pressureMSL | environment.outside.pressureMSL | derived when available | Pa/hPa by metadata | Derived quantity; altitude-dependent |
+| Station position | position | navigation.position | when available | WGS84 degrees | GPS-derived latitude/longitude; dashboard may link to map |
+| Station elevation | altitude | navigation.gnss.antennaAltitude | when available | m | GPS GGA antenna altitude; input to MSL pressure derivation at Reid |
 | Wind speed | windSpeed | environment.wind.speedTrue | environment.wind.speedApparent | m/s | Fixed-station semantics need final naming decision |
 | Wind direction | windDirection | environment.wind.directionTrue | environment.wind.angleApparent | rad | Fixed-station semantics need final naming decision |
 | 10 min mean speed | windAverage | environment.wind.speedAverage | not observed | m/s | Reid legacy firmware |
@@ -58,6 +60,7 @@ Pressure conversion is metadata-sensitive in the long-term contract. For the fir
 - Historical API between the webapp and InfluxDB for today/24 h rainfall and trend plots.
 - Common station-health namespace independent of Victron hardware.
 - Freshness thresholds for live/late/offline status.
+- For fixed stations, whether MSL pressure should use a configured elevation rather than instantaneous GPS altitude.
 
 ## Provenance
 
