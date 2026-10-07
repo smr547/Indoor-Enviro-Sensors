@@ -1,5 +1,5 @@
 APP_NAME := weather-station-dashboard
-VERSION := 0.1.0
+VERSION := 0.1.1
 SIGNALK_HOME := /home/smr/.signalk
 PKG := $(APP_NAME)-$(VERSION).tgz
 
