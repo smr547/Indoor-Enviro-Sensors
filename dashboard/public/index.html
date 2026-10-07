@@ -60,7 +60,7 @@ function render(){
  el("supplyV").textContent=Number.isFinite(state.supplyV)?num(state.supplyV,2)+" V":"—";el("panelW").textContent=Number.isFinite(state.panelW)?num(state.panelW,0)+" W":"—";el("loadA").textContent=Number.isFinite(state.loadA)?num(state.loadA,2)+" A":"—";el("chargeMode").textContent=state.chargeMode??"—";
  if(last){el("updated").textContent="last update "+new Date(last).toLocaleTimeString();el("freshness").textContent=Math.round((Date.now()-last)/1000)+" s"}
 }
-function ingest(path,value){const k=reverse.get(path);if(!k||state[k]!==undefined)return;const n=typeof value==="number"?value:Number(value);state[k]=Number.isFinite(n)?n:value;last=Date.now();render()}
+function ingest(path,value){const k=reverse.get(path);if(!k)return;const n=typeof value==="number"?value:Number(value);state[k]=Number.isFinite(n)?n:value;last=Date.now();render()}
 async function seed(){
  try{const r=await fetch("../../signalk/v1/api/vessels/self");const d=await r.json();el("stationName").textContent=d.name||"Weather Station";
   for(const [k,ps] of Object.entries(aliases)){for(const p of ps){let x=d;for(const part of p.split("."))x=x?.[part];if(x&&x.value!==undefined){state[k]=x.value;break}}}render()
