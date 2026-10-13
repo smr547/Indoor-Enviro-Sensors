@@ -71,7 +71,7 @@ async function rainfall() {
   };
   const end = now.toISOString();
   const entries = await Promise.all(Object.entries(windows).map(async ([name, start]) => {
-    const sql = 'SELECT SUM("value") AS total, COUNT("value") AS samples, LAST("value") AS latest ' +
+    const sql = 'SELECT SUM("value") AS total, COUNT("value") AS samples ' +
       'FROM "environment.rain.5min" WHERE time >= \''
       + start.toISOString() + '\' AND time <= \'' + end +
       '\' AND "source" = \'' + SOURCE + '\'';
