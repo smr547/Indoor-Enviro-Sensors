@@ -14,7 +14,7 @@ h1{margin:0;font-size:clamp(1.8rem,4vw,3rem)}.sub,.label{color:var(--muted)}.sta
 .arrow{position:absolute;left:50%;top:50%;width:5px;height:78px;background:#f4f7fa;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(0deg);border-radius:4px}.arrow:before{content:"";position:absolute;top:-10px;left:-7px;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:16px solid #f4f7fa}
 .big{font-size:clamp(2.2rem,6vw,4.7rem);font-weight:800;line-height:1}.unit{font-size:.42em;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:15px}.metric{background:#0a1724;border:1px solid var(--line);border-radius:16px;padding:15px}.value{font-size:1.7rem;font-weight:750;margin-top:4px}
 .lower{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.healthrow{display:flex;justify-content:space-between;border-bottom:1px solid #203346;padding:9px 0}.healthrow:last-child{border:0}
-.good{color:var(--good)}.warn{color:var(--warn)}.missing{opacity:.42}.location{margin-top:12px;padding-top:12px;border-top:1px solid #203346;display:flex;justify-content:space-between;gap:16px;align-items:end}.coords{font-variant-numeric:tabular-nums}.maplink{color:var(--text);text-decoration:none;border:1px solid #47627a;border-radius:12px;padding:8px 11px;white-space:nowrap}.maplink:hover{background:#13283b}.foot{margin-top:15px;color:var(--muted);font-size:.9rem}
+.good{color:var(--good)}.warn{color:var(--warn)}.missing{opacity:.42}.location{margin-top:12px;padding-top:12px;border-top:1px solid #203346;display:flex;justify-content:space-between;gap:16px;align-items:end}.coords{font-variant-numeric:tabular-nums}.maplink{color:var(--text);text-decoration:none;border:1px solid #47627a;border-radius:12px;padding:8px 11px;white-space:nowrap}.maplink:hover{background:#13283b}.rain-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}.rain-note{font-size:.82rem;color:var(--muted);margin-top:8px}.foot{margin-top:15px;color:var(--muted);font-size:.9rem}
 @media(max-width:780px){.grid,.lower{grid-template-columns:1fr}.wind{grid-template-columns:1fr}.head{display:block}.status{text-align:left;margin-top:10px}}
 </style>
 </head>
@@ -25,10 +25,15 @@ h1{margin:0;font-size:clamp(1.8rem,4vw,3rem)}.sub,.label{color:var(--muted)}.sta
 <section class="panel"><div class="label">OUTSIDE</div><div class="metrics"><div class="metric"><div class="label">Temperature</div><div class="value"><span id="temperature">—</span> °C</div></div><div class="metric"><div class="label">Humidity</div><div class="value"><span id="humidity">—</span> %</div></div><div class="metric"><div class="label">Pressure</div><div class="value"><span id="pressure">—</span> hPa</div></div><div class="metric"><div class="label">MSL pressure</div><div class="value"><span id="pressureMSL">—</span> hPa</div></div></div><div class="location"><div><div class="label">STATION LOCATION</div><div class="coords"><strong id="position">—</strong> · <span id="altitude">—</span></div></div><a id="mapLink" class="maplink missing" href="#" target="_blank" rel="noopener">View on map ↗</a></div></section>
 </div>
 <div class="lower">
-<section class="panel"><div class="label">RAIN</div><div class="metrics"><div class="metric"><div class="label">Last 5 minutes</div><div class="value"><span id="rain5">—</span> mm</div></div><div class="metric"><div class="label">LoRa bucket count</div><div class="value" id="bucketCount">—</div></div></div><div class="foot">Today / 24 h totals will be added from historical data in the next increment.</div></section>
+<section class="panel"><div class="label">RAIN</div><div class="metrics"><div class="metric"><div class="label">Last 5 minutes</div><div class="value"><span id="rain5">—</span> mm</div></div><div class="metric"><div class="label">LoRa bucket count</div><div class="value" id="bucketCount">—</div></div></div><div class="rain-summary">
+<div class="metric"><div class="label">Today · since midnight</div><div class="value"><span id="rainToday">—</span> mm</div></div>
+<div class="metric"><div class="label">Since 9 am</div><div class="value"><span id="rain9am">—</span> mm</div></div>
+<div class="metric"><div class="label">Last 24 hours</div><div class="value"><span id="rain24h">—</span> mm</div></div>
+<div class="metric"><div class="label">This month</div><div class="value"><span id="rainMonth">—</span> mm</div></div>
+</div><div class="rain-note" id="rainHistoryStatus">Historical rainfall loading…</div></section>
 <section class="panel"><div class="label">STATION HEALTH</div><div class="healthrow"><span>Supply</span><strong id="supplyV">—</strong></div><div class="healthrow"><span>Solar panel</span><strong id="panelW">—</strong></div><div class="healthrow"><span>Load</span><strong id="loadA">—</strong></div><div class="healthrow"><span>Charging</span><strong id="chargeMode">—</strong></div><div class="foot">Power telemetry is an optional station capability.</div></section>
 </div>
-<div class="foot">Weather dashboard v0.1.1 · compatibility contract for Reid and Barking Owl</div>
+<div class="foot">Weather dashboard v0.2.0 · compatibility contract for Reid and Barking Owl</div>
 </div>
 <script>
 const aliases={
@@ -76,5 +81,24 @@ function connect(){
  ws.onmessage=e=>{try{const d=JSON.parse(e.data);for(const u of d.updates||[])for(const v of u.values||[])ingest(v.path,v.value)}catch(err){}};
  ws.onclose=()=>{el("connection").textContent="reconnecting…";el("connection").className="warn";setTimeout(connect,3000)};ws.onerror=()=>ws.close()
 }
-seed();connect();setInterval(render,1000);
+async function updateRainHistory(){
+ try{
+  const response=await fetch('/plugins/weather-station-dashboard/rain',{cache:'no-store'});
+  if(!response.ok)throw new Error('HTTP '+response.status);
+  const data=await response.json();
+  const fields={today:'rainToday',since9am:'rain9am',last24h:'rain24h',month:'rainMonth'};
+  let incomplete=[];
+  for(const [key,id] of Object.entries(fields)){
+    const w=data.windows?.[key];
+    el(id).textContent=Number.isFinite(w?.mm)?w.mm.toFixed(2):'—';
+    if(w&&!w.complete)incomplete.push(key);
+  }
+  el('rainHistoryStatus').textContent=incomplete.length?
+    'Partial data ('+incomplete.join(', ')+'); totals may be understated · updated '+new Date(data.asOf).toLocaleTimeString():
+    'Historical totals · updated '+new Date(data.asOf).toLocaleTimeString();
+ }catch(err){
+  el('rainHistoryStatus').textContent='Historical rainfall unavailable ('+err.message+')';
+ }
+}
+seed();connect();updateRainHistory();setInterval(updateRainHistory,60000);setInterval(render,1000);
 </script></body></html>

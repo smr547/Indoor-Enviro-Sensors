@@ -1,11 +1,15 @@
 {
   "name": "weather-station-dashboard",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Unified Reid and Barking Owl weather dashboard for Signal K",
-  "keywords": ["signalk-webapp"],
+  "keywords": [
+    "signalk-webapp",
+    "signalk-node-server-plugin"
+  ],
   "author": "Steven Ring",
   "license": "MIT",
   "signalk": {
     "displayName": "Weather Station Dashboard"
-  }
+  },
+  "main": "index.js"
 }
